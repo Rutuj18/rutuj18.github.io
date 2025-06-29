@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,9 +6,7 @@
   <title>How does ChatGPT know what word comes next? It’s not magic — it’s discrete math</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-  <script async id="MathJax-script"
-    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
-  </script>
+  <script async id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -40,9 +37,16 @@
     p, li {
       font-size: 1.05rem;
       line-height: 1.7;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
     }
     ul, ol {
       margin-left: 1.3rem;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
+    }
+    h2 + p, h1 + p {
+      margin-top: 1.2rem;
     }
     pre {
       background-color: #f5f7ff;
@@ -50,6 +54,8 @@
       border-radius: 8px;
       overflow-x: auto;
       font-size: 0.95rem;
+      margin-top: 1rem;
+      margin-bottom: 1rem;
     }
     code {
       background-color: #f0f0ff;
@@ -75,122 +81,92 @@
 <body>
   <div class="container">
     <h1>How does ChatGPT know what word comes next? It’s not magic — it’s discrete math</h1>
-    <p>
-    When you're typing and ChatGPT seems to psychically predict your next word, it can feel like magic. But it’s not. 
-    Underneath the surface, this behavior is powered by beautifully structured, surprisingly simple mathematics — the 
-    kind that falls squarely in the realm of discrete math. In this blog, we’ll take a closer look at the structures 
-    and processes that make this possible: tokenization, prediction via graphs, and attention mechanisms. 
-    All powered by finite sets, probabilities, and graphs — not spells.
-    </p>
+
+    <p>When you're typing and ChatGPT seems to psychically predict your next word, it can feel like magic. But it’s not. Underneath the surface, this behavior is powered by beautifully structured, surprisingly simple mathematics — the kind that falls squarely in the realm of discrete math. In this blog, we’ll take a closer look at the structures and processes that make this possible: tokenization, prediction via graphs, and attention mechanisms. All powered by finite sets, probabilities, and graphs — not spells.</p>
 
     <h2>Tokenization — Words Are Not Words</h2>
-    <p>
-        Before ChatGPT can predict the next word, it needs to break input into chunks it understands. These are not 
-        necessarily words, but <strong>tokens</strong> — subword units generated using an algorithm called 
-        <strong>Byte Pair Encoding (BPE)</strong> [1][2].
+    <p>Before ChatGPT can predict the next word, it needs to break input into chunks it understands. These are not necessarily words, but <strong>tokens</strong> — subword units generated using an algorithm called <strong>Byte Pair Encoding (BPE)</strong> [1][2].</p>
 
-        Byte Pair Encoding (BPE) starts with individual characters and repeatedly merges the most frequent adjacent 
-        character pairs. For example, given the string <code>aaabdaaabac</code>:
+    <p>Byte Pair Encoding (BPE) starts with individual characters and repeatedly merges the most frequent adjacent character pairs. For example, given the string <code>aaabdaaabac</code>:</p>
 
-        <ul>
-        <li>Step 1: Replace most frequent pair <code>aa</code> → <code>Z</code>: <code>ZabdZabac</code></li>
-        <li>Step 2: Replace <code>ab</code> → <code>Y</code>: <code>ZYdZYac</code></li>
-        </ul>
+    <ul>
+      <li>Step 1: Replace most frequent pair <code>aa</code> → <code>Z</code>: <code>ZabdZabac</code></li>
+      <li>Step 2: Replace <code>ab</code> → <code>Y</code>: <code>ZYdZYac</code></li>
+    </ul>
 
-        In mathematical terms, BPE is a greedy compression algorithm that builds a finite dictionary <em>D</em> of 
-        pairs to merge. Each merge reduces the entropy of the representation.
+    <p>In mathematical terms, BPE is a greedy compression algorithm that builds a finite dictionary <em>D</em> of pairs to merge. Each merge reduces the entropy of the representation.</p>
 
-        The resulting structure can be represented using <strong>tries</strong> (prefix trees), which are 
-        equivalent to deterministic finite automata (DFAs). These are classic objects in discrete math. The DFA accepts 
-        token sequences by transitioning over characters and matching the longest valid token from the vocabulary.
+    <p>The resulting structure can be represented using <strong>tries</strong> (prefix trees), which are equivalent to deterministic finite automata (DFAs). These are classic objects in discrete math. The DFA accepts token sequences by transitioning over characters and matching the longest valid token from the vocabulary.</p>
 
-        <br>
-        <strong>Discrete math structure:</strong> Finite set of tokens Σ, DFA T = (Q, Σ, δ, q₀, F)
-        where δ: Q × Σ → Q is the transition function of the automaton.
-        </p>
+    <p><strong>Discrete math structure:</strong> Finite set of tokens Σ, DFA T = (Q, Σ, δ, q₀, F), where δ: Q × Σ → Q is the transition function.</p>
 
     <h2>Prediction = Probabilities on Graphs</h2>
+    <p>Once the input is tokenized, GPT's job is to predict the <strong>next</strong> token. A basic approximation of this behavior is modeled using <strong>Markov chains</strong>, where the next state depends only on the current one.</p>
+
+    <p>This can be visualized as a <strong>directed weighted graph</strong>:</p>
+
+    <ul>
+      <li><strong>Nodes</strong> represent tokens</li>
+      <li><strong>Edges</strong> represent the conditional probability P(t<sub>i+1</sub> | t<sub>i</sub>)</li>
+    </ul>
+
+    <pre>
+START → quick (0.5), brown (0.5)
+quick → fox (1.0)
+brown → fox (1.0)
+fox → END (1.0)
+    </pre>
+
+    <p>The probability of a sequence of tokens is computed as:</p>
+
     <p>
-        Once the input is tokenized, GPT's job is to predict the <strong>next</strong> token. A basic approximation 
-        of this behavior is modeled using <strong>Markov chains</strong>, where the next state depends only on the 
-        current one.
+      $$P(t_0, t_1, ..., t_k) = P(t_0) \cdot P(t_1|t_0) \cdot \dots \cdot P(t_k|t_{k-1})$$
+    </p>
 
-        This can be visualized as a <strong>directed weighted graph</strong>:
-
-        <ul>
-        <li><strong>Nodes</strong> represent tokens</li>
-        <li><strong>Edges</strong> represent the conditional probability P(t<sub>i+1</sub> | t<sub>i</sub>)</li>
-        </ul>
-
-        <pre>
-        START → quick (0.5), brown (0.5)
-        quick → fox (1.0)
-        brown → fox (1.0)
-        fox → END (1.0)
-        </pre>
-
-        The probability of a sequence of tokens is computed as:
-
-        $$
-        P(t_0, t_1, ..., t_k) = P(t_0) \cdot P(t_1|t_0) \cdot \dots \cdot P(t_k|t_{k-1})
-        $$
-
-        <strong>Discrete math structure:</strong> A finite probabilistic state machine or weighted digraph 
-        G = (V, E, w), where w(u,v) = P(v|u).
-        </p>
+    <p><strong>Discrete math structure:</strong> A finite probabilistic state machine or weighted digraph G = (V, E, w), where w(u,v) = P(v|u).</p>
 
     <h2>Attention is Selection — Not All Tokens Matter</h2>
+    <p>GPT-like models break the Markov assumption using <strong>self-attention</strong>, where each token considers all previous tokens when computing the next token.</p>
+
+    <p>For each token, attention calculates:</p>
+
     <p>
-        GPT-like models break the Markov assumption using <strong>self-attention</strong>, where each token considers 
-        all previous tokens when computing the next token.
+      $$\text{score}(i, j) = \frac{Q_i \cdot K_j^T}{\sqrt{d}}$$
+      <br>
+      $$\alpha_{ij} = \text{softmax}(\text{score}(i,j)) = \frac{\exp(score(i,j))}{\sum_j \exp(score(i,j))}$$
+    </p>
 
-        For each token, attention calculates:
+    <p>Where Q, K are learned projection matrices and α<sub>ij</sub> determines how much token i attends to token j.</p>
 
-        $$
-        \text{score}(i, j) = \frac{Q_i \cdot K_j^T}{\sqrt{d}}
-        $$
+    <p><strong>Discrete math connection:</strong> This is a combinatorial optimization over subsets of token indices. The attention matrix α ∈ ℝⁿˣⁿ represents a weighted complete graph over the sequence positions.</p>
 
-        $$
-        \alpha_{ij} = \text{softmax}(\text{score}(i,j)) = \frac{\exp(score(i,j))}{\sum_j \exp(score(i,j))}
-        $$
-
-        Where Q, K are learned projection matrices and α<sub>ij</sub> determines how much token i attends to token j.
-
-        <strong>Discrete math connection:</strong> This is a combinatorial optimization over subsets of token indices. 
-        The attention matrix α ∈ ℝⁿˣⁿ represents a weighted complete graph over the sequence positions.
-
-        Theoretical work such as Context-Conditioned Markov Chains (CCMCs) shows how transformers generalize Markov models.
-        </p>
+    <p>Theoretical work such as Context-Conditioned Markov Chains (CCMCs) [3] shows how transformers generalize Markov models.</p>
 
     <h2>Why This Isn’t Magic (But Feels Like It)</h2>
-    <p>
-        GPT predicts text by chaining together token predictions. Each step involves:
+    <p>GPT predicts text by chaining together token predictions. Each step involves:</p>
 
-        <ol>
-          <li>Reading the current sequence of tokens</li>
-          <li>Computing probabilities for the next token</li>
-          <li>Sampling or choosing the most likely one</li>
-          <li>Repeating</li>
-        </ol>
+    <ol>
+      <li>Reading the current sequence of tokens</li>
+      <li>Computing probabilities for the next token</li>
+      <li>Sampling or choosing the most likely one</li>
+      <li>Repeating</li>
+    </ol>
 
-        <strong>Discrete math recap:</strong>
-        <ul>
-          <li>Finite alphabets — token vocabulary</li>
-          <li>Graph traversal — prediction through state transitions</li>
-          <li>Probability theory — next-token selection</li>
-          <li>Combinatorics — attention mechanism</li>
-        </ul>
-        </p>
+    <p><strong>Discrete math recap:</strong></p>
+    <ul>
+      <li>Finite alphabets — token vocabulary</li>
+      <li>Graph traversal — prediction through state transitions</li>
+      <li>Probability theory — next-token selection</li>
+      <li>Combinatorics — attention mechanism</li>
+    </ul>
 
     <h2>References</h2>
-    
     <ol>
       <li><a href="https://www.geeksforgeeks.org/byte-pair-encoding-bpe-in-nlp/" target="_blank">GeeksforGeeks: Byte Pair Encoding in NLP</a></li>
       <li><a href="https://en.wikipedia.org/wiki/Byte-pair_encoding" target="_blank">Wikipedia: Byte Pair Encoding</a></li>
       <li><a href="https://arxiv.org/pdf/2402.13512" target="_blank">Mapping Transformers to Context-Conditioned Markov Chains</a></li>
       <li><a href="https://jalammar.github.io/illustrated-transformer/" target="_blank">Jay Alammar’s Illustrated Transformer</a></li>
     </ol>
-    
 
     <div class="footer">© 2025 · Rutuja Swami · Summer of Math Exposition Blog 🌸</div>
   </div>
